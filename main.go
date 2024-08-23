@@ -2,58 +2,38 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"os/signal"
 	"syscall"
 
-	"github.com/bwmarrin/discordgo"
+	"github.com/Enricko/go-discord-bot/services"
 
+	"github.com/joho/godotenv"
 )
 
-const prefix = "!bot"
-
 func main() {
-	// Get the bot token from the environment variable
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatal("Error loading .env file")
+	}
+
 	token := os.Getenv("DISCORD_BOT_TOKEN")
 	if token == "" {
-		fmt.Println("Error: DISCORD_BOT_TOKEN environment variable not set")
-		return
+		log.Fatal("DISCORD_BOT_TOKEN must be set")
 	}
 
-	// Create a new Discord session
-	dg, err := discordgo.New("Bot " + token)
+	discord, err := services.NewDiscordService(token)
 	if err != nil {
-		fmt.Println("Error creating Discord session:", err)
-		return
+		log.Fatalf("error creating Discord session: %v", err)
 	}
 
-	// Register messageCreate as a callback for the messageCreate events
-	dg.AddHandler(messageCreate)
+	discord.Start()
 
-	// Open the websocket connection to Discord
-	err = dg.Open()
-	if err != nil {
-		fmt.Println("Error opening connection:", err)
-		return
-	}
-
-	fmt.Println("Bot is now running. Press CTRL-C to exit.")
+	fmt.Println("RPG Bot is now running. Press CTRL-C to exit.")
 	sc := make(chan os.Signal, 1)
 	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
 	<-sc
 
-	// Close the Discord session
-	dg.Close()
-}
-
-func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
-	// Ignore messages from the bot itself
-	if m.Author.ID == s.State.User.ID {
-		return
-	}
-
-	// Check if the message starts with the prefix
-	if m.Content == prefix+" hello" {
-		s.ChannelMessageSend(m.ChannelID, "Hello! I'm a Discord bot written in Go.")
-	}
+	discord.Stop()
 }
